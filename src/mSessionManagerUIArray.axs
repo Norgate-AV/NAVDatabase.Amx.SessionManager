@@ -1,9 +1,11 @@
 MODULE_NAME='mSessionManagerUIArray'    (
                                             dev dvTP[],
-                                            dev vdvSessionManager
+                                            dev vdvObject
                                         )
 
 (***********************************************************)
+#DEFINE USING_NAV_MODULE_BASE_CALLBACKS
+#DEFINE USING_NAV_MODULE_BASE_PROPERTY_EVENT_CALLBACK
 #include 'NAVFoundation.ModuleBase.axi'
 #include 'NAVFoundation.UIUtils.axi'
 
@@ -77,7 +79,7 @@ DEFINE_TYPE
 (***********************************************************)
 DEFINE_VARIABLE
 
-volatile char cPopupName[NAV_MAX_CHARS] = 'Dialogs - SessionEndWarning'
+volatile char popupName[NAV_MAX_CHARS] = 'Dialogs - SessionEndWarning'
 
 
 (***********************************************************)
@@ -96,6 +98,16 @@ DEFINE_MUTUALLY_EXCLUSIVE
 (* EXAMPLE: DEFINE_FUNCTION <RETURN_TYPE> <NAME> (<PARAMETERS>) *)
 (* EXAMPLE: DEFINE_CALL '<NAME>' (<PARAMETERS>) *)
 
+#IF_DEFINED USING_NAV_MODULE_BASE_PROPERTY_EVENT_CALLBACK
+define_function NAVModulePropertyEventCallback(_NAVModulePropertyEvent event) {
+    switch (event.Name) {
+        case 'POPUP_NAME': {
+            popupName = event.Args[1]
+        }
+    }
+}
+#END_IF
+
 
 (***********************************************************)
 (*                STARTUP CODE GOES BELOW                  *)
@@ -109,49 +121,44 @@ DEFINE_START {
 (***********************************************************)
 DEFINE_EVENT
 
-data_event[vdvSessionManager] {
+data_event[vdvObject] {
     command: {
-        stack_var char cCmdHeader[NAV_MAX_CHARS]
-        stack_var char cCmdParam[2][NAV_MAX_CHARS]
+        stack_var _NAVSnapiMessage message
 
-        NAVLog(NAVFormatStandardLogMessage(NAV_STANDARD_LOG_MESSAGE_TYPE_COMMAND_FROM, data.device, data.text))
+        NAVParseSnapiMessage(data.text, message)
 
-        cCmdHeader = DuetParseCmdHeader(data.text)
-        cCmdParam[1] = DuetParseCmdParam(data.text)
-        cCmdParam[2] = DuetParseCmdParam(data.text)
+        NAVErrorLog(NAV_LOG_LEVEL_DEBUG,
+                        NAVFormatStandardLogMessage(NAV_STANDARD_LOG_MESSAGE_TYPE_COMMAND_FROM,
+                                                    data.device,
+                                                    data.text))
 
-        switch (cCmdHeader) {
-            case 'PROPERTY': {
-                switch (cCmdParam[1]) {
-                    case 'POPUP_NAME': {
-                        cPopupName = cCmdParam[2]
-                    }
-                }
+        switch (message.Header) {
+            default: {
+
             }
         }
     }
     string: {
-        stack_var char cCmdHeader[NAV_MAX_CHARS]
-        stack_var char cCmdParam[3][NAV_MAX_CHARS]
+        stack_var _NAVSnapiMessage message
 
-        NAVLog(NAVFormatStandardLogMessage(NAV_STANDARD_LOG_MESSAGE_TYPE_STRING_FROM, data.device, data.text))
+        NAVParseSnapiMessage(data.text, message)
 
-        cCmdHeader = DuetParseCmdHeader(data.text)
-        cCmdParam[1]    = DuetParseCmdParam(data.text)
-        cCmdParam[2]    = DuetParseCmdParam(data.text)
-        cCmdParam[3]    = DuetParseCmdParam(data.text)
+        NAVErrorLog(NAV_LOG_LEVEL_DEBUG,
+                        NAVFormatStandardLogMessage(NAV_STANDARD_LOG_MESSAGE_TYPE_STRING_FROM,
+                                                    data.device,
+                                                    data.text))
 
-        switch (cCmdHeader) {
+        switch (message.Header) {
             case 'SESSION': {
-                switch (cCmdParam[1]) {
+                switch (message.Parameter[1]) {
                     case 'END_WARNING': {
-                        switch (cCmdParam[2]) {
+                        switch (message.Parameter[2]) {
                             case 'START': {
-                                NAVTextArray(dvTP, 1, '0', cCmdParam[3])
-                                NAVPopupShowArray(dvTP, cPopupName, '')
+                                NAVTextArray(dvTP, 1, '0', message.Parameter[3])
+                                NAVPopupShowArray(dvTP, popupName, '')
                             }
                             case 'DISMISS': {
-                                NAVPopupKillArray(dvTP, cPopupName)
+                                NAVPopupKillArray(dvTP, popupName)
                             }
                             case 'ALERT': {
                                 NAVDoubleBeepArray(dvTP)
@@ -167,18 +174,18 @@ data_event[vdvSessionManager] {
 
 button_event[dvTP, BUTTON_SESSION_END_WARNING_DISMISS] {
     push: {
-        NAVCommand(vdvSessionManager, "'SESSION-END_WARNING_DISMISS'")
+        NAVCommand(vdvObject, "'SESSION-END_WARNING_DISMISS'")
     }
 }
 
 
 button_event[dvTP, BUTTON_SESSION_EXTEND] {
     push: {
-        stack_var integer iExtension
+        stack_var integer extension
 
-        iExtension = get_last(BUTTON_SESSION_EXTEND)
+        extension = get_last(BUTTON_SESSION_EXTEND)
 
-        NAVCommand(vdvSessionManager, "'SESSION-EXTEND,', SESSION_EXTENSION[iExtension]")
+        NAVCommand(vdvObject, "'SESSION-EXTEND,', SESSION_EXTENSION[extension]")
     }
 }
 

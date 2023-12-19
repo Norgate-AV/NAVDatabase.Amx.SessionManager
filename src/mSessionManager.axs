@@ -3,6 +3,8 @@ MODULE_NAME='mSessionManager'       (
                                     )
 
 (***********************************************************)
+#DEFINE USING_NAV_MODULE_BASE_CALLBACKS
+#DEFINE USING_NAV_MODULE_BASE_PROPERTY_EVENT_CALLBACK
 #include 'NAVFoundation.ModuleBase.axi'
 
 /*
@@ -165,8 +167,8 @@ define_function long NewSessionInit(_Session session, char duration[]) {
     session.StartTime.Hour = time_to_hour(time)
     session.StartTime.Minute = time_to_minute(time)
 
-    session.EndTime.Hour = session.StartTime.Hour + type_cast(session.Duration.Hours)
-    session.EndTime.Minute = time_to_minute(time)
+    session.EndTime.Hour = (session.StartTime.Hour + type_cast(session.Duration.Hours)) % 24
+    session.EndTime.Minute = (session.StartTime.Minute + type_cast(session.Duration.Minutes)) % 60
 
     session.Event[SESSION_EVENT_END_WARNING] = session.Duration.Milliseconds - (SESSION_EVENT_END_WARNING_MINUTES_BEFORE * ONE_MINUTE)
     session.Event[SESSION_EVENT_END] = session.Duration.Milliseconds
@@ -187,11 +189,11 @@ define_function StartNewSession(_Session session, char duration[]) {
     }
 
     if (NewSessionInit(session, duration) == 0) {
-        NAVLog("'SessionManager: StartNewSession: Unable to start new session. Invalid duration: "', duration, '"'")
+        NAVErrorLog(NAV_LOG_LEVEL_DEBUG, "'SessionManager: StartNewSession: Unable to start new session. Invalid duration: "', duration, '"'")
         return
     }
 
-    NAVLog("'SessionManager: StartNewSession: EndTime: "', itoa(session.EndTime.Hour), ':', itoa(session.EndTime.Minute), '"'")
+    NAVErrorLog(NAV_LOG_LEVEL_DEBUG, "'SessionManager: StartNewSession: EndTime: "', itoa(session.EndTime.Hour), ':', itoa(session.EndTime.Minute), '"'")
     NAVTimelineStart(TL_SESSION_TIMER, session.Event, TIMELINE_ABSOLUTE, TIMELINE_ONCE)
 }
 
@@ -210,14 +212,14 @@ define_function ExtendSession(_Session session, char duration[]) {
     // }
 
     // if (SessionDurationInit(session.ExtensionDuration, duration) == 0) {
-    //     NAVLog("'SessionManager: ExtendSession: Unable to extend session. Invalid duration: "', duration, '"'")
+    //     NAVErrorLog(NAV_LOG_LEVEL_DEBUG, "'SessionManager: ExtendSession: Unable to extend session. Invalid duration: "', duration, '"'")
     //     return
     // }
 
     EditSession(session, duration)
 
     // session.Extend = true
-    // NAVLog("'SessionManager: ExtendSession: Session Extended "', duration, '"'")
+    // NAVErrorLog(NAV_LOG_LEVEL_DEBUG, "'SessionManager: ExtendSession: Session Extended "', duration, '"'")
 
     DismissSessionEndWarning()
 }
@@ -235,7 +237,7 @@ define_function EditSession(_Session session, char duration[]) {
     }
 
     if (SessionDurationInit(sessionDuration, duration) == 0) {
-        NAVLog("'SessionManager: EditSession: Invalid duration: "', duration, '"'")
+        NAVErrorLog(NAV_LOG_LEVEL_DEBUG, "'SessionManager: EditSession: Invalid duration: "', duration, '"'")
         return
     }
 
@@ -247,7 +249,7 @@ define_function EditSession(_Session session, char duration[]) {
 
     // session.Extend = false
     NAVTimelineReload(TL_SESSION_TIMER, session.Event)
-    NAVLog("'SessionManager: EditSession: EndTime: "', itoa(session.EndTime.Hour), ':', itoa(session.EndTime.Minute), '"'")
+    NAVErrorLog(NAV_LOG_LEVEL_DEBUG, "'SessionManager: EditSession: EndTime: "', itoa(session.EndTime.Hour), ':', itoa(session.EndTime.Minute), '"'")
 }
 
 
@@ -322,7 +324,7 @@ define_function long GetSessionDurationInMilliseconds(char duration[]) {
             result = atoi(durationTime) * ONE_MINUTE
         }
         default: {
-            NAVLog("'SessionManager: Invalid session time format: "', durationFormat, '"'")
+            NAVErrorLog(NAV_LOG_LEVEL_DEBUG, "'SessionManager: Invalid session time format: "', durationFormat, '"'")
         }
     }
 
@@ -332,7 +334,7 @@ define_function long GetSessionDurationInMilliseconds(char duration[]) {
 
 define_function SetDefaultSessionDuration(_Session session, char duration[]) {
     if (!GetSessionDurationInMilliseconds(duration)) {
-        NAVLog("'SessionManager: Failed to set default session duration => Invalid duration: "', duration, '"'")
+        NAVErrorLog(NAV_LOG_LEVEL_DEBUG, "'SessionManager: Failed to set default session duration => Invalid duration: "', duration, '"'")
         return
     }
 
@@ -342,7 +344,26 @@ define_function SetDefaultSessionDuration(_Session session, char duration[]) {
 
 define_function SetSessionEndWarningBeeperInterval(_Session session, long interval) {
     session.EndWarningBeeperInterval[1] = interval
+    set_length_array(session.EndWarningBeeperInterval, NUMBER_OF_INTERVALS)
 }
+
+
+define_function SessionEventsInit(_Session session) {
+    session.Event[SESSION_EVENT_END_WARNING] = 0
+    session.Event[SESSION_EVENT_END] = 0
+    set_length_array(session.Event, NUMBER_OF_EVENTS)
+}
+
+
+#IF_DEFINED USING_NAV_MODULE_BASE_PROPERTY_EVENT_CALLBACK
+define_function NAVModulePropertyEventCallback(_NAVModulePropertyEvent event) {
+    switch (event.Name) {
+        case 'DEFAULT_SESSION_DURATION': {
+            SetDefaultSessionDuration(session,  event.Args[1])
+        }
+    }
+}
+#END_IF
 
 
 (***********************************************************)
@@ -351,6 +372,7 @@ define_function SetSessionEndWarningBeeperInterval(_Session session, long interv
 DEFINE_START {
     SetDefaultSessionDuration(session, DEFAULT_SESSION_DURATION)
     SetSessionEndWarningBeeperInterval(session, SESSION_END_WARNING_BEEPER_INTERVAL)
+    SessionEventsInit(session)
 }
 
 (***********************************************************)
@@ -360,43 +382,36 @@ DEFINE_EVENT
 
 data_event[vdvObject] {
     command: {
-        stack_var char header[NAV_MAX_CHARS]
-        stack_var char param[2][NAV_MAX_CHARS]
+        stack_var _NAVSnapiMessage message
 
-        NAVLog(NAVFormatStandardLogMessage(NAV_STANDARD_LOG_MESSAGE_TYPE_COMMAND_FROM, data.device, data.text))
+        NAVParseSnapiMessage(data.text, message)
 
-        header = DuetParseCmdHeader(data.text)
-        param[1] = DuetParseCmdParam(data.text)
-        param[2] = DuetParseCmdParam(data.text)
+        NAVErrorLog(NAV_LOG_LEVEL_DEBUG,
+                        NAVFormatStandardLogMessage(NAV_STANDARD_LOG_MESSAGE_TYPE_COMMAND_FROM,
+                                                    data.device,
+                                                    data.text))
 
-        switch (header) {
-            case 'PROPERTY': {
-                switch (param[1]) {
-                    case 'DEFAULT_SESSION_DURATION': {
-                        SetDefaultSessionDuration(session, param[2])
-                    }
-                }
-            }
+        switch (message.Header) {
             case 'SESSION': {
-                switch (param[1]) {
+                switch (message.Parameter[1]) {
                     case 'START': {
                         stack_var char duration[NAV_MAX_CHARS]
 
-                        duration = param[2]
+                        duration = message.Parameter[2]
 
                         StartNewSession(session, duration)
                     }
                     case 'EDIT': {
                         stack_var char duration[NAV_MAX_CHARS]
 
-                        duration = param[2]
+                        duration = message.Parameter[2]
 
                         EditSession(session, duration)
                     }
                     case 'EXTEND': {
                         stack_var char duration[NAV_MAX_CHARS]
 
-                        duration = param[2]
+                        duration = message.Parameter[2]
 
                         ExtendSession(session, duration)
                     }
@@ -419,11 +434,7 @@ timeline_event[TL_SESSION_TIMER] {
             StartSessionEndWarning(session)
         }
         case SESSION_EVENT_END: {
-            //if (session.Extend) {
-            //    StartNewSession(session, session.ExtensionDuration.DurationString)
-            //} else {
-                EndSession()
-            //}
+            EndSession()
         }
     }
 }
@@ -431,7 +442,7 @@ timeline_event[TL_SESSION_TIMER] {
 
 timeline_event[TL_SESSION_END_WARNING_BEEPER] {
     send_string vdvObject, "'SESSION-END_WARNING,ALERT'"
-    NAVLog("'SessionManager: Session End Warning Alert'")
+    NAVErrorLog(NAV_LOG_LEVEL_DEBUG, "'SessionManager: Session End Warning Alert'")
 }
 
 
