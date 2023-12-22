@@ -60,6 +60,7 @@ constant integer TIME_REMAINING_HOUR_ADDRESS    = 5
 constant integer TIME_REMAINING_MINUTE_ADDRESS  = 6
 constant integer TIME_END_EDIT_HOUR_ADDRESS     = 7
 constant integer TIME_END_EDIT_MINUTE_ADDRESS   = 8
+constant integer TIME_END_EDIT_LIMIT_ADDRESS    = 9
 
 constant integer BUTTON_SESSION_END_WARNING_DISMISS     = 1
 
@@ -112,6 +113,9 @@ volatile long remainingSeconds
 
 volatile long endEditEpoch
 
+volatile char endEditLimit[NAV_MAX_CHARS] = '22:00'
+volatile long endEditLimitEpoch
+
 (***********************************************************)
 (*               BUTTON DEFINITIONS GO BELOW              *)
 (***********************************************************)
@@ -138,6 +142,10 @@ define_function NAVModulePropertyEventCallback(_NAVModulePropertyEvent event) {
         case 'POPUP_NAME': {
             popupName = event.Args[1]
         }
+        case 'SESSION_EDIT_LIMIT': {
+            endEditLimit = event.Args[1]
+            InitializeEndTimeEditLimit(endEditLimit)
+        }
     }
 }
 #END_IF
@@ -150,6 +158,10 @@ define_function UpdateSessionTimeEndEdit(long epoch) {
         epoch = endEpoch
     }
 
+    if (epoch > endEditLimitEpoch) {
+        epoch = endEditLimitEpoch
+    }
+
     endEditEpoch = epoch
 
     NAVDateTimeEpochToTimespec(epoch, timespec)
@@ -158,7 +170,10 @@ define_function UpdateSessionTimeEndEdit(long epoch) {
     NAVTextArray(dvTP, TIME_END_EDIT_MINUTE_ADDRESS, '0', "format('%02d', timespec.Minute)")
 
     NAVEnableButtonArray(dvTP, BUTTON_SESSION_EDIT_APPLY, (epoch > endEpoch))
+
+    NAVEnableButtonArray(dvTP, BUTTON_SESSION_EDIT_1_HOUR_PLUS, (epoch != endEditLimitEpoch))
     NAVEnableButtonArray(dvTP, BUTTON_SESSION_EDIT_1_HOUR_MINUS, ((epoch - endEpoch) >= NAV_DATETIME_SECONDS_IN_1_HOUR))
+    NAVEnableButtonArray(dvTP, BUTTON_SESSION_EDIT_15_MINUTE_PLUS, (epoch != endEditLimitEpoch))
     NAVEnableButtonArray(dvTP, BUTTON_SESSION_EDIT_15_MINUTE_MINUS, ((epoch - endEpoch) >= (NAV_DATETIME_SECONDS_IN_1_MINUTE * 15)))
 }
 
@@ -199,6 +214,33 @@ define_function SessionEditApply(long epoch) {
 define_function SessionEditCancel() {
     NAVPopupKillArray(dvTP, popupName)
     UpdateSessionTimeEndEdit(endEpoch)
+}
+
+
+define_function UpdateSessionEndEditLimit(char limit[]) {
+    NAVTextArray(dvTP, TIME_END_EDIT_LIMIT_ADDRESS, '0', limit)
+}
+
+
+define_function long GetSessionEndEditLimitEpoch(char limit[]) {
+    stack_var _NAVTimespec timespec
+    stack_var char timeSegment[3][2]
+
+    NAVDateTimeGetTimespecNow(timespec)
+
+    NAVSplitString(limit, ':', timeSegment)
+
+    timespec.Hour = atoi(timeSegment[1])
+    timespec.Minute = atoi(timeSegment[2])
+    timespec.Seconds = 0
+
+    return NAVDateTimeGetEpoch(timespec)
+}
+
+
+define_function InitializeEndTimeEditLimit(char limit[]) {
+    endEditLimitEpoch = GetSessionEndEditLimitEpoch(limit)
+    UpdateSessionEndEditLimit(limit)
 }
 
 
@@ -244,6 +286,9 @@ data_event[vdvObject] {
         switch (message.Header) {
             case 'SESSION': {
                 switch (message.Parameter[1]) {
+                    case 'START': {
+                        InitializeEndTimeEditLimit(endEditLimit)
+                    }
                     case 'END_WARNING': {
                         switch (message.Parameter[2]) {
                             case 'START': {
@@ -303,6 +348,7 @@ data_event[dvTP] {
     online: {
         UpdateSessionTimeEnd(endEpoch)
         UpdateSessionTimeRemaining(remainingSeconds)
+        UpdateSessionEndEditLimit(endEditLimit)
     }
 }
 
