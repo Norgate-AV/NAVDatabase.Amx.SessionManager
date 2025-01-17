@@ -51,7 +51,6 @@ DEFINE_CONSTANT
 
 constant char DEFAULT_SESSION_DURATION[] = '2h'
 
-
 constant long TL_SESSION_TICKER = 1
 constant long TL_SESSION_END_WARNING_BEEPER = 2
 
@@ -86,6 +85,8 @@ struct _Session {
     long Ticker[1]
     integer Extend
     char DefaultDuration[NAV_MAX_CHARS]
+
+    char EndWarningDismissed
     long EndWarningBeeperInterval[NUMBER_OF_INTERVALS]
 }
 
@@ -162,6 +163,7 @@ define_function long NewSessionInit(_Session session, char duration[]) {
     // Initialize the end timespec using the current epoch and the session duration
     NAVDateTimeEpochToTimespec(epoch + session.Duration.Seconds, session.EndTime)
 
+    session.EndWarningDismissed = false
     session.Extend = false
 
     return result
@@ -187,33 +189,6 @@ define_function StartNewSession(_Session session, char duration[]) {
 
     SendSessionEndTime(session)
     NAVTimelineStart(TL_SESSION_TICKER, session.Ticker, TIMELINE_ABSOLUTE, TIMELINE_REPEAT)
-}
-
-
-define_function ExtendSession(_Session session, char duration[]) {
-    if (!SessionIsActive()) {
-        return
-    }
-
-    if (!length_array(duration)) {
-        duration = session.DefaultDuration
-    }
-
-    // if (!length_array(duration)) {
-    //     duration = session.DefaultDuration
-    // }
-
-    // if (SessionDurationInit(session.ExtensionDuration, duration) == 0) {
-    //     NAVErrorLog(NAV_LOG_LEVEL_DEBUG, "'SessionManager: ExtendSession: Unable to extend session. Invalid duration: "', duration, '"'")
-    //     return
-    // }
-
-    // EditSession(session, duration)
-
-    // session.Extend = true
-    // NAVErrorLog(NAV_LOG_LEVEL_DEBUG, "'SessionManager: ExtendSession: Session Extended "', duration, '"'")
-
-    DismissSessionEndWarning()
 }
 
 
@@ -302,6 +277,7 @@ define_function DismissSessionEndWarning() {
         return
     }
 
+    session.EndWarningDismissed = true
     send_string vdvObject, "'SESSION-END_WARNING,DISMISS'"
 
     NAVTimelineStop(TL_SESSION_END_WARNING_BEEPER)
@@ -385,9 +361,16 @@ define_function SessionTick(ttimeline timeline) {
     end = NAVDateTimeGetEpoch(session.EndTime)
     warning = end - (NAV_DATETIME_SECONDS_IN_1_MINUTE * SESSION_EVENT_END_WARNING_MINUTES_BEFORE)
 
-    if (now >= warning && !SessionEndWarningIsActive()) {
+    if (now < warning && SessionEndWarningIsActive()) {
+        NAVErrorLog(NAV_LOG_LEVEL_DEBUG, "'SessionManager: Session End Warning Dismissed'")
+        DismissSessionEndWarning()
+        return
+    }
+
+    if (now >= warning && !SessionEndWarningIsActive() && !session.EndWarningDismissed) {
         NAVErrorLog(NAV_LOG_LEVEL_DEBUG, "'SessionManager: Session End Warning'")
         StartSessionEndWarning(session)
+        return
     }
 
     if (now < end) {
@@ -449,13 +432,6 @@ data_event[vdvObject] {
                                 EditSession(session, atoi(message.Parameter[3]))
                             }
                         }
-                    }
-                    case 'EXTEND': {
-                        stack_var char duration[NAV_MAX_CHARS]
-
-                        duration = message.Parameter[2]
-
-                        ExtendSession(session, duration)
                     }
                     case 'END_EARLY': {
                         EndSessionEarly()

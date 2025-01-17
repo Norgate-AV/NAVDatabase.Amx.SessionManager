@@ -74,11 +74,17 @@ constant integer BUTTON_SESSION_EXTEND[]                =   {
                                                             }
 
 
-constant char SESSION_EXTENSION[][NAV_MAX_CHARS]        =   {
-                                                                '30m',
-                                                                '1h',
-                                                                '2h'
-                                                            }
+// constant char SESSION_EXTENSION[][NAV_MAX_CHARS]        =   {
+//                                                                 '30m',
+//                                                                 '1h',
+//                                                                 '2h'
+//                                                             }
+
+constant long SESSION_EXTENSION[]   =   {
+                                            NAV_DATETIME_SECONDS_IN_1_HOUR / 2,
+                                            NAV_DATETIME_SECONDS_IN_1_HOUR,
+                                            NAV_DATETIME_SECONDS_IN_1_HOUR * 2
+                                        }
 
 constant integer BUTTON_SESSION_EDIT_1_HOUR_PLUS        = 21
 constant integer BUTTON_SESSION_EDIT_1_HOUR_MINUS       = 22
@@ -339,7 +345,7 @@ button_event[dvTP, BUTTON_SESSION_EXTEND] {
 
         extension = get_last(BUTTON_SESSION_EXTEND)
 
-        NAVCommand(vdvObject, "'SESSION-EXTEND,', SESSION_EXTENSION[extension]")
+        NAVCommand(vdvObject, "'SESSION-EDIT_END,EPOCH,', itoa(endEpoch + SESSION_EXTENSION[extension])")
     }
 }
 
