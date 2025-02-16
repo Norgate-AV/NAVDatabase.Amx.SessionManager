@@ -268,11 +268,6 @@ data_event[vdvObject] {
 
         NAVParseSnapiMessage(data.text, message)
 
-        NAVErrorLog(NAV_LOG_LEVEL_DEBUG,
-                        NAVFormatStandardLogMessage(NAV_STANDARD_LOG_MESSAGE_TYPE_COMMAND_FROM,
-                                                    data.device,
-                                                    data.text))
-
         switch (message.Header) {
             default: {
 
@@ -283,11 +278,6 @@ data_event[vdvObject] {
         stack_var _NAVSnapiMessage message
 
         NAVParseSnapiMessage(data.text, message)
-
-        NAVErrorLog(NAV_LOG_LEVEL_DEBUG,
-                        NAVFormatStandardLogMessage(NAV_STANDARD_LOG_MESSAGE_TYPE_STRING_FROM,
-                                                    data.device,
-                                                    data.text))
 
         switch (message.Header) {
             case 'SESSION': {

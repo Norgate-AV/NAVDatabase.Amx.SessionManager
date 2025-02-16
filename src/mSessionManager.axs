@@ -353,8 +353,6 @@ define_function SessionTick(ttimeline timeline) {
     stack_var long end
     stack_var long warning
 
-    NAVErrorLog(NAV_LOG_LEVEL_DEBUG, "'mSessionManager => Session Tick'")
-
     SendSessionTick(session)
 
     now = NAVDateTimeGetEpochNow()
@@ -411,11 +409,6 @@ data_event[vdvObject] {
 
         NAVParseSnapiMessage(data.text, message)
 
-        NAVErrorLog(NAV_LOG_LEVEL_DEBUG,
-                        NAVFormatStandardLogMessage(NAV_STANDARD_LOG_MESSAGE_TYPE_COMMAND_FROM,
-                                                    data.device,
-                                                    data.text))
-
         switch (message.Header) {
             case 'SESSION': {
                 switch (message.Parameter[1]) {
@@ -448,7 +441,6 @@ data_event[vdvObject] {
 
 timeline_event[TL_SESSION_END_WARNING_BEEPER] {
     send_string vdvObject, "'SESSION-END_WARNING,ALERT'"
-    NAVErrorLog(NAV_LOG_LEVEL_DEBUG, "'SessionManager: Session End Warning Alert'")
 }
 
 
