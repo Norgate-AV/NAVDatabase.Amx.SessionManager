@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.1](https://github.com/Norgate-AV/NAVDatabase.Amx.SessionManager/compare/v1.0.0...v1.0.1) (2025-02-16)
+
+### 🐛 Bug Fixes
+
+- ensure params are trimmed ([99bf06b](https://github.com/Norgate-AV/NAVDatabase.Amx.SessionManager/commit/99bf06b542ef6cc6f11f9b090e2c7a36c19f7755))
+
+### 🚀 Performance
+
+- remove unnecessary logging ([0af9826](https://github.com/Norgate-AV/NAVDatabase.Amx.SessionManager/commit/0af9826560d2d358e648c4dda322f2430865af2f))
+
 ## 1.0.0 (2025-01-17)
 
 ### 🌟 Features
