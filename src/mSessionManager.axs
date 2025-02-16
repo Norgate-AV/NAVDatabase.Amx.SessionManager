@@ -336,7 +336,7 @@ define_function SessionTickerInit(_Session session, long interval) {
 define_function NAVModulePropertyEventCallback(_NAVModulePropertyEvent event) {
     switch (event.Name) {
         case 'DEFAULT_SESSION_DURATION': {
-            SetDefaultSessionDuration(session, event.Args[1])
+            SetDefaultSessionDuration(session, NAVTrimString(event.Args[1]))
         }
     }
 }
