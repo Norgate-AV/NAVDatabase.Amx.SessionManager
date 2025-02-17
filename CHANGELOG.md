@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.1.0](https://github.com/Norgate-AV/NAVDatabase.Amx.SessionManager/compare/v1.0.1...v1.1.0) (2025-02-17)
+
+### 🌟 Features
+
+- bump NAVFoundation.Amx to 1.27.0 ([7c5c4a2](https://github.com/Norgate-AV/NAVDatabase.Amx.SessionManager/commit/7c5c4a2e273d2ee82fdadf739963ca613dac66d4))
+
 ## [1.0.1](https://github.com/Norgate-AV/NAVDatabase.Amx.SessionManager/compare/v1.0.0...v1.0.1) (2025-02-16)
 
 ### 🐛 Bug Fixes
