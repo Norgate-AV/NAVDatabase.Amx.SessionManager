@@ -263,17 +263,6 @@ DEFINE_START {
 DEFINE_EVENT
 
 data_event[vdvObject] {
-    command: {
-        stack_var _NAVSnapiMessage message
-
-        NAVParseSnapiMessage(data.text, message)
-
-        switch (message.Header) {
-            default: {
-
-            }
-        }
-    }
     string: {
         stack_var _NAVSnapiMessage message
 

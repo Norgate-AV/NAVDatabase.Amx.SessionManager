@@ -7,6 +7,9 @@ MODULE_NAME='mSessionManager'       (
 #DEFINE USING_NAV_MODULE_BASE_PROPERTY_EVENT_CALLBACK
 #include 'NAVFoundation.ModuleBase.axi'
 #include 'NAVFoundation.DateTimeUtils.axi'
+#include 'NAVFoundation.StringUtils.axi'
+#include 'NAVFoundation.TimelineUtils.axi'
+#include 'NAVFoundation.ErrorLogUtils.axi'
 
 /*
  _   _                       _          ___     __
@@ -292,7 +295,7 @@ define_function long GetSessionDurationInMilliseconds(char duration[]) {
     result = 0
 
     durationFormat = lower_string(right_string(duration, 1))
-    durationTime = NAVStripCharsFromRight(duration, 1)
+    durationTime = NAVStripRight(duration, 1)
 
     switch (durationFormat) {
         case 'h': {
